@@ -104,21 +104,23 @@ and can receive new jobs.
 
 ## Job Receipt
 
-The agent polls `GET /agents/:id/jobs/next` with a 30s long-poll timeout. If a job
-has been dispatched to this agent, the server responds immediately with the job payload.
-If no job is ready, the server holds the connection open until one arrives or the
-timeout expires, then the agent polls again. This gives near-instant job start without
-a persistent connection.
+The controller dispatches jobs by making an HTTP POST directly to the agent's
+listener address (`Agent.Address`). The agent exposes a small HTTP server for
+this purpose. On receiving a dispatch request the agent validates the payload,
+acknowledges the request, and begins execution asynchronously.
 
-The transport logic lives in `/agent/transport/rest.go` and implements the agent-side
-of the `AgentTransport` contract. A future gRPC implementation would live in
-`/agent/transport/grpc.go` and replace this without touching the execution code.
+The job payload (`JobPayload`) contains everything the agent needs:
+- Job ID and template ID
 - Playbook path (relative to the cloned repo workspace)
-- Inventory (as text, pre-fetched from Postgres by the API)
-- Credential refs with encrypted values for transit
+- Inventory hosts (pre-resolved from Postgres by the controller)
+- Credentials (decrypted by the controller — plaintext material, not references)
 - Extra vars (JSON)
-- Job ID (used for log and result endpoints)
-- Workspace path (where the repo is already cloned by git sync)
+- Callback URL — the API server endpoint the agent POSTs logs and results to
+
+**v2 seam:** The `AgentTransport` interface in `pkg/transport` hides the dispatch
+mechanism from the reconciliation loop. A future pull/long-poll or gRPC-stream
+transport (for agents behind NAT that cannot accept inbound connections) would
+implement the same interface. The agent execution code never changes.
 
 ---
 

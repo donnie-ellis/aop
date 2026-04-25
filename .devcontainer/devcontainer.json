@@ -16,7 +16,7 @@
 	// "forwardPorts": [5432],
 
 	// Use 'postCreateCommand' to run commands after the container is created.
-	// "postCreateCommand": "go version",
+	"postCreateCommand": "sudo chmod -R g+w /go/pkg/mod /go/pkg/sumdb && echo '[ -f /workspaces/aop/.devcontainer/.env ] && set -a && source /workspaces/aop/.devcontainer/.env && set +a' >> ~/.bashrc",
 
 	// Uncomment to connect as root instead. More info: https://aka.ms/dev-containers-non-root.
 	// "remoteUser": "root"
