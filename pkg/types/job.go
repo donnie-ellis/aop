@@ -117,6 +117,14 @@ type JobStatusEvent struct {
 // JobPayload — what the controller sends to an agent
 // ---------------------------------------------------------------------------
 
+// JobLogLine is a single line of output captured from ansible-playbook.
+// Batches of these are POSTed by the agent and stored in job_logs.
+type JobLogLine struct {
+	Seq    int    `json:"seq"`
+	Line   string `json:"line"`
+	Stream string `json:"stream"` // "stdout" | "stderr"
+}
+
 // JobPayload is the wire structure the controller sends to an agent when
 // dispatching a job. It contains everything the agent needs to execute;
 // the agent never queries the database or any secrets backend.
