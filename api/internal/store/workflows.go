@@ -84,6 +84,9 @@ func (s *Store) UpsertWorkflowNodes(ctx context.Context, workflowID uuid.UUID, n
 		return err
 	}
 	for _, n := range nodes {
+		if n.ExtraVars == nil {
+			n.ExtraVars = map[string]any{}
+		}
 		if _, err := tx.Exec(ctx,
 			`INSERT INTO workflow_nodes (id, workflow_id, kind, resource_id, label, extra_vars)
 			 VALUES ($1, $2, $3, $4, $5, $6)`,

@@ -8,6 +8,9 @@ import (
 )
 
 func (s *Store) CreateJobTemplate(ctx context.Context, name, description string, projectID uuid.UUID, playbook string, credentialID *uuid.UUID, defaultExtraVars map[string]any) (*types.JobTemplate, error) {
+	if defaultExtraVars == nil {
+		defaultExtraVars = map[string]any{}
+	}
 	var t types.JobTemplate
 	err := s.pool.QueryRow(ctx,
 		`INSERT INTO job_templates (name, description, project_id, playbook, credential_id, default_extra_vars)

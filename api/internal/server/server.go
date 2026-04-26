@@ -117,6 +117,11 @@ func New(cfg *config.Config, h *handler.Handlers, st *store.Store, log zerolog.L
 	}
 }
 
+// Handler returns the underlying http.Handler for use in tests.
+func (s *Server) Handler() http.Handler {
+	return s.http.Handler
+}
+
 func (s *Server) Start() error {
 	s.log.Info().Str("addr", s.http.Addr).Msg("starting api server")
 	return s.http.ListenAndServe()

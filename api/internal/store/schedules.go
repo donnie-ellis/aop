@@ -8,6 +8,9 @@ import (
 )
 
 func (s *Store) CreateSchedule(ctx context.Context, name string, templateID uuid.UUID, cronExpr, timezone string, enabled bool, extraVars map[string]any) (*types.Schedule, error) {
+	if extraVars == nil {
+		extraVars = map[string]any{}
+	}
 	var sc types.Schedule
 	err := s.pool.QueryRow(ctx,
 		`INSERT INTO schedules (name, template_id, cron_expr, timezone, enabled, extra_vars)
@@ -53,6 +56,9 @@ func (s *Store) ListSchedules(ctx context.Context) ([]types.Schedule, error) {
 }
 
 func (s *Store) UpdateSchedule(ctx context.Context, id uuid.UUID, name, cronExpr, timezone string, enabled bool, extraVars map[string]any) (*types.Schedule, error) {
+	if extraVars == nil {
+		extraVars = map[string]any{}
+	}
 	var sc types.Schedule
 	err := s.pool.QueryRow(ctx,
 		`UPDATE schedules

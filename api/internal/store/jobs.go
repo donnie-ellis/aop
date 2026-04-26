@@ -9,6 +9,9 @@ import (
 )
 
 func (s *Store) CreateJob(ctx context.Context, templateID uuid.UUID, workflowRunID *uuid.UUID, extraVars map[string]any) (*types.Job, error) {
+	if extraVars == nil {
+		extraVars = map[string]any{}
+	}
 	var j types.Job
 	err := s.pool.QueryRow(ctx,
 		`INSERT INTO jobs (template_id, workflow_run_id, extra_vars)
