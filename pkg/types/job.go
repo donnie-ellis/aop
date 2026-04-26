@@ -140,4 +140,11 @@ type JobPayload struct {
 	ExtraVars  map[string]any  `json:"extra_vars"`
 	Credentials []CredentialSecret `json:"credentials"` // decrypted by controller before dispatch
 	CallbackURL string         `json:"callback_url"` // agent POSTs status/logs here (API server URL)
+
+	// RepoURL and RepoBranch tell the agent where to clone the project.
+	// The agent checks out a shallow clone into its job work directory and
+	// runs the playbook from there. An ssh_key or https_token credential
+	// in Credentials is used for authentication if the repo requires it.
+	RepoURL    string `json:"repo_url"`
+	RepoBranch string `json:"repo_branch"`
 }
