@@ -98,71 +98,161 @@ definitions, and v1 scope — see [ARCHITECTURE.md](./ARCHITECTURE.md).
 
 ### Prerequisites
 
-- Go 1.22+
-- Node.js 20+
-- Docker and Docker Compose
-- Ansible (on any host running the agent)
+- [VS Code](https://code.visualstudio.com/) with the [Dev Containers extension](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers)
+- Docker Desktop (or Docker Engine + Docker Compose)
+- Ansible on any host that will run the agent
 
-### Run Locally
+The devcontainer provides Go, Node 22, pnpm, golangci-lint, golang-migrate, and a
+PostgreSQL 17 sidecar. Everything else is installed on first open.
+
+### 1. Start the devcontainer
 
 ```bash
-# Clone the repo
 git clone https://github.com/yourusername/aop.git
 cd aop
 
-# Start Postgres and all services
-docker compose up -d
-
-# Apply database migrations
-make migrate
-
-# Start the full stack in development mode
-make dev
+# Create the required env file (edit values if needed)
+cp .devcontainer/.env.example .devcontainer/.env
 ```
 
-The UI will be available at `http://localhost:5173`.
-The API server will be available at `http://localhost:8080`.
+Open the folder in VS Code and choose **Reopen in Container** when prompted (or run
+`Dev Containers: Reopen in Container` from the command palette). PostgreSQL starts
+automatically as a sidecar service.
+
+### 2. Apply migrations
+
+```bash
+make migrate-up
+```
+
+`AOP_DB_URL` defaults to the devcontainer Postgres instance
+(`postgresql://appuser:apppassword@localhost:5432/appdb?sslmode=disable`) via the
+`.env` file loaded by the devcontainer.
+
+### 3. Build the binaries
+
+```bash
+make build-all          # → bin/api, bin/controller, bin/agent
+```
+
+### 4. Set environment variables
+
+Each process reads configuration from environment variables. For local development,
+export these in your shell (or add them to `.devcontainer/.env`):
+
+```bash
+# Shared
+export AOP_DB_URL="postgresql://appuser:apppassword@localhost:5432/appdb?sslmode=disable"
+
+# API server
+export AOP_ENCRYPTION_KEY="$(openssl rand -hex 32)"   # 32-byte hex — keep stable across restarts
+export AOP_JWT_SECRET="$(openssl rand -hex 32)"
+
+# Agent
+export AOP_API_URL="http://localhost:8080"
+export AOP_REGISTRATION_TOKEN="change-me"             # must match the token seeded in the DB
+```
+
+> Generate `AOP_ENCRYPTION_KEY` once and store it — changing it invalidates all
+> encrypted credentials in the database.
+
+### 5. Start the stack
+
+Open three terminal tabs (or use a process manager):
+
+```bash
+# Tab 1 — API server
+./bin/api
+
+# Tab 2 — Controller
+./bin/controller
+
+# Tab 3 — Agent (requires ansible-playbook on PATH)
+./bin/agent
+```
+
+### 6. Start the UI dev server
+
+```bash
+cd ui
+pnpm install        # first time only
+pnpm dev
+```
+
+The UI is available at `http://localhost:5173` and proxies API calls to `http://localhost:8080`.
+
+---
+
+### Smoke test
+
+The smoke test script builds the binaries, seeds a test user, wires up a local git
+repo with a no-op playbook, and asserts a job reaches `success` end-to-end.
+
+```bash
+# Postgres must be reachable at $AOP_DB_URL (devcontainer default works)
+bash scripts/smoke_test.sh
+```
+
+---
+
+## Commands Reference
 
 ### Build
 
 ```bash
-make build-api        # Build the API server binary
-make build-controller # Build the controller binary
-make build-agent      # Build the agent binary
-make build-all        # Build all three
-make ui-build         # Build the React frontend
+make build-api        # → bin/api
+make build-controller # → bin/controller
+make build-agent      # → bin/agent
+make build-all        # all three
 ```
 
 ### Test
 
 ```bash
-make test             # Run all Go tests
-make test-api         # Run API server tests only
-make test-controller  # Run controller tests only
-make test-agent       # Run agent tests only
+make test             # all packages via go workspace
+make test-api         # API server only
+make test-controller  # controller only
+make test-agent       # agent only
 ```
 
 ### Lint
 
 ```bash
-make lint             # Run golangci-lint across all packages
+make lint             # golangci-lint across all packages
+```
+
+### Migrations
+
+```bash
+make migrate-up       # apply all pending migrations
+make migrate-down     # roll back one step
+make migrate-create   # create a new migration (prompts for name)
+```
+
+### UI
+
+```bash
+cd ui
+pnpm dev              # dev server with HMR at http://localhost:5173
+pnpm build            # production build → ui/dist/
+pnpm exec biome check # lint + format check
 ```
 
 ---
 
 ## Configuration
 
-All components are configured via environment variables. There are no config files
-required — all settings have documented environment variables with sensible defaults
-where applicable. Each component's README documents its full set of environment variables.
+All components are configured via environment variables. No config files are required.
 
-A `.env.example` file is provided at the root with all variables and descriptions.
-Copy it to `.env` for local development — docker compose will pick it up automatically.
+| Component  | Required variables |
+|------------|--------------------|
+| API        | `AOP_DB_URL`, `AOP_ENCRYPTION_KEY` (32-byte hex), `AOP_JWT_SECRET` |
+| Controller | `AOP_DB_URL` |
+| Agent      | `AOP_API_URL`, `AOP_REGISTRATION_TOKEN` |
+| UI         | `VITE_API_URL` (defaults to `http://localhost:8080`) |
 
-```bash
-cp .env.example .env
-# Edit .env with your values
-```
+Dev environment values live in `.devcontainer/.env` (gitignored). Copy from
+`.devcontainer/.env.example` — the devcontainer loads it automatically.
 
 ---
 
@@ -171,13 +261,18 @@ cp .env.example .env
 | Layer | Technology |
 |-------|-----------|
 | Backend | Go 1.22+ |
-| Frontend | React 18, TypeScript, Tailwind CSS, Vite |
-| Database | PostgreSQL 16 |
+| Frontend | React 18, TypeScript, Vite, Tailwind CSS v4 |
+| UI components | shadcn/ui (new-york) + Radix UI |
+| Forms | TanStack Form v1 + Zod |
+| Data fetching | TanStack Query v5 |
+| Routing | React Router v7 |
+| Package manager | pnpm |
+| Linter/formatter | Biome |
+| Database | PostgreSQL 17 |
 | Migrations | golang-migrate |
 | Logging | zerolog (structured JSON) |
-| Metrics | Prometheus (`/metrics` endpoint) |
-| Workflow visualization | React Flow |
-| Containerization | Docker |
+| Workflow visualization | React Flow (DAG builder) |
+| Containerization | Docker / VS Code Dev Containers |
 
 ---
 
@@ -202,15 +297,16 @@ Interface definitions live in [pkg/README.md](./pkg/README.md).
 
 ### V1 (current)
 - [x] Architecture and design
-- [ ] Core data model and migrations
-- [ ] API server — all resource endpoints
-- [ ] Controller — reconciliation loop and job lifecycle
+- [x] Core data model and migrations
+- [x] API server — all resource endpoints
+- [x] Controller — reconciliation loop and job lifecycle
+- [x] Agent — Ansible execution and log streaming
+- [x] React UI — all core screens (login, dashboard, jobs, templates, projects, agents)
+- [x] End-to-end smoke test
 - [ ] Scheduler — cron-based job triggering
 - [ ] Git sync — project and inventory sync
-- [ ] Agent — Ansible execution and log streaming
 - [ ] Workflow engine — DAG execution and approval gates
-- [ ] React UI — all core screens
-- [ ] Docker images and docker-compose
+- [ ] Docker images for deployment
 
 ### V2 (planned)
 - Decision gates in workflows (expression-based branching via CEL)
