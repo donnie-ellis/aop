@@ -20,10 +20,11 @@ RUN apt-get update && export DEBIAN_FRONTEND=noninteractive \
     && locale-gen \
     && rm -rf /var/lib/apt/lists/*
 
-# Node 22 LTS
+# Node 22 LTS + pnpm (via corepack)
 RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
     && apt-get install -y nodejs \
-    && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/* \
+    && corepack enable pnpm
 
 # Ansible in a venv
 RUN python3 -m venv /opt/ansible \
