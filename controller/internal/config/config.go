@@ -1,6 +1,7 @@
 package config
 
 import (
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"os"
@@ -9,17 +10,18 @@ import (
 
 // Config holds all runtime configuration for the controller process.
 type Config struct {
-	DBURL   string
-	APIURL  string // base URL of the API server — embedded in job payloads as CallbackURL
-	LogLevel  string
-	LogFormat string
+	DBURL         string
+	APIURL        string // base URL of the API server — embedded in job payloads as CallbackURL
+	EncryptionKey []byte // 32-byte AES-256 key decoded from AOP_ENCRYPTION_KEY (hex); nil = no credential decryption
+	LogLevel      string
+	LogFormat     string
 
 	ReconcileInterval time.Duration // how often to poll for pending jobs
 	HeartbeatTTL      time.Duration // agent considered offline after this
 	DispatchTimeout   time.Duration // stuck dispatched job → failed after this
 	RunningTimeout    time.Duration // stuck running job → failed after this
 
-	WorkspaceDir string // base directory for git clones
+	WorkspaceDir string        // base directory for git clones
 	SyncInterval time.Duration // how often to sync all project inventories
 }
 
@@ -43,6 +45,17 @@ func Load() (*Config, error) {
 	}
 	if cfg.APIURL == "" {
 		errs = append(errs, errors.New("AOP_API_URL is required"))
+	}
+
+	if v := os.Getenv("AOP_ENCRYPTION_KEY"); v != "" {
+		key, err := hex.DecodeString(v)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("AOP_ENCRYPTION_KEY: invalid hex: %w", err))
+		} else if len(key) != 32 {
+			errs = append(errs, fmt.Errorf("AOP_ENCRYPTION_KEY: must be 32 bytes (64 hex chars), got %d bytes", len(key)))
+		} else {
+			cfg.EncryptionKey = key
+		}
 	}
 
 	if v := os.Getenv("AOP_LOG_LEVEL"); v != "" {

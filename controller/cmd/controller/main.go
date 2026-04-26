@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"errors"
 	"os"
 	"os/signal"
 	"syscall"
@@ -10,12 +9,11 @@ import (
 	"github.com/donnie-ellis/aop/controller/internal/config"
 	"github.com/donnie-ellis/aop/controller/internal/reconciler"
 	"github.com/donnie-ellis/aop/controller/internal/scheduler"
+	"github.com/donnie-ellis/aop/controller/internal/secrets"
 	"github.com/donnie-ellis/aop/controller/internal/store"
 	"github.com/donnie-ellis/aop/controller/inventory"
 	"github.com/donnie-ellis/aop/controller/selector"
 	"github.com/donnie-ellis/aop/controller/transport"
-	"github.com/donnie-ellis/aop/pkg/types"
-	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
@@ -28,6 +26,10 @@ func main() {
 	}
 
 	logger := buildLogger(cfg)
+
+	if cfg.EncryptionKey == nil {
+		logger.Warn().Msg("AOP_ENCRYPTION_KEY not set — jobs with credentials will fail at dispatch")
+	}
 
 	pool, err := pgxpool.New(context.Background(), cfg.DBURL)
 	if err != nil {
@@ -50,13 +52,7 @@ func main() {
 		DispatchTimeout: cfg.DispatchTimeout,
 		RunningTimeout:  cfg.RunningTimeout,
 	}
-	// SecretsProvider: reuse the store as the credential getter (controller
-	// decrypts via AES-GCM using the same key material as the API). In v1 the
-	// controller does not have an encryption key — it relies on the store
-	// returning plaintext-equivalent data via GetCredentialWithSecret. A full
-	// SecretsProvider implementation will be wired here once the controller has
-	// AOP_ENCRYPTION_KEY in its config.
-	rec := reconciler.New(db, &noopSecrets{}, sel, xport, recCfg, logger)
+	rec := reconciler.New(db, secrets.NewProvider(db, cfg.EncryptionKey), sel, xport, recCfg, logger)
 	sched := scheduler.New(db, logger)
 	gitSync := inventory.NewGitSync(db, cfg.WorkspaceDir, logger)
 
@@ -70,6 +66,7 @@ func main() {
 	logger.Info().
 		Dur("reconcile_interval", cfg.ReconcileInterval).
 		Dur("heartbeat_ttl", cfg.HeartbeatTTL).
+		Bool("credentials_enabled", cfg.EncryptionKey != nil).
 		Msg("controller started")
 
 	quit := make(chan os.Signal, 1)
@@ -91,13 +88,4 @@ func buildLogger(cfg *config.Config) zerolog.Logger {
 		return zerolog.New(zerolog.ConsoleWriter{Out: os.Stderr}).With().Timestamp().Logger()
 	}
 	return zerolog.New(os.Stderr).With().Timestamp().Logger()
-}
-
-// noopSecrets is a placeholder SecretsProvider that always errors. It will be
-// replaced once AOP_ENCRYPTION_KEY is added to the controller config and the
-// full postgres secrets provider is wired in.
-type noopSecrets struct{}
-
-func (n *noopSecrets) Resolve(credentialID uuid.UUID) (*types.CredentialSecret, error) {
-	return nil, errors.New("no secrets provider configured: set AOP_ENCRYPTION_KEY")
 }
