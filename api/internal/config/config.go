@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 )
 
@@ -18,9 +19,15 @@ type Config struct {
 	LogFormat     string        // AOP_LOG_FORMAT, default json
 	HeartbeatTTL  time.Duration // AOP_AGENT_HEARTBEAT_TTL, default 30s
 	RegToken      string        // AOP_REGISTRATION_TOKEN
+	CORSOrigins   []string      // AOP_CORS_ORIGINS, comma-separated, default http://localhost:5174
 }
 
 func Load() (*Config, error) {
+	corsOrigins := []string{"http://localhost:5174"}
+	if v := os.Getenv("AOP_CORS_ORIGINS"); v != "" {
+		corsOrigins = strings.Split(v, ",")
+	}
+
 	cfg := &Config{
 		DBUrl:        os.Getenv("AOP_DB_URL"),
 		JWTExpiry:    8 * time.Hour,
@@ -29,6 +36,7 @@ func Load() (*Config, error) {
 		LogFormat:    "json",
 		HeartbeatTTL: 30 * time.Second,
 		RegToken:     os.Getenv("AOP_REGISTRATION_TOKEN"),
+		CORSOrigins:  corsOrigins,
 	}
 
 	var errs []error

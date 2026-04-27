@@ -34,6 +34,16 @@ cleanup() {
     kill "$AGENT_PID"  2>/dev/null || true
     wait 2>/dev/null || true
     rm -rf "$WORK_DIR"
+
+    # Remove all DB records created by this run (order matters for FKs)
+    psql "$DB_URL" -q <<SQL 2>/dev/null || true
+DELETE FROM jobs          WHERE template_id = '${TEMPLATE_ID:-00000000-0000-0000-0000-000000000000}';
+DELETE FROM job_templates WHERE id          = '${TEMPLATE_ID:-00000000-0000-0000-0000-000000000000}';
+DELETE FROM projects      WHERE id          = '${PROJECT_ID:-00000000-0000-0000-0000-000000000000}';
+DELETE FROM agents        WHERE address     = '${AGENT_ADDR}';
+DELETE FROM users         WHERE email       = '${TEST_EMAIL}';
+SQL
+
     if [[ $ec -eq 0 ]]; then
         echo "SMOKE TEST PASSED"
     else
@@ -49,18 +59,7 @@ DB_URL="${AOP_DB_URL:-postgresql://postgres:postgres@localhost:5432/postgres?ssl
 
 # ── seed a user (bcrypt hash of "password") ───────────────────────────────────
 TEST_EMAIL="smoke@test.local"
-_GENHASH="${REPO_ROOT}/api/cmd/genhash_smoke/main.go"
-mkdir -p "$(dirname "$_GENHASH")"
-cat > "$_GENHASH" <<'GOEOF'
-package main
-import ( "fmt"; "golang.org/x/crypto/bcrypt" )
-func main() {
-    h, _ := bcrypt.GenerateFromPassword([]byte("password"), 4)
-    fmt.Print(string(h))
-}
-GOEOF
-BCRYPT_HASH=$(cd "$REPO_ROOT" && go run ./api/cmd/genhash_smoke/)
-rm -rf "${REPO_ROOT}/api/cmd/genhash_smoke"
+BCRYPT_HASH=$(cd "$REPO_ROOT" && go run ./api/cmd/genhash/)
 psql "$DB_URL" -q <<SQL
 INSERT INTO users (id, email, password_hash, created_at, updated_at)
 VALUES (gen_random_uuid(), '${TEST_EMAIL}', '${BCRYPT_HASH}', now(), now())

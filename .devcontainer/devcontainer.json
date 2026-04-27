@@ -4,7 +4,7 @@
 	"name": "Go & PostgreSQL",
 	"dockerComposeFile": "docker-compose.yml",
 	"service": "app",
-	"workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}"
+	"workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}",
 
 	// Features to add to the dev container. More info: https://containers.dev/features.
 	// "features": {},
@@ -13,7 +13,7 @@
 	// "customizations": {},
 
 	// Use 'forwardPorts' to make a list of ports inside the container available locally.
-	// "forwardPorts": [5432],
+	"forwardPorts": [5174],
 
 	// Use 'postCreateCommand' to run commands after the container is created.
 	"postCreateCommand": "sudo chmod -R g+w /go/pkg/mod /go/pkg/sumdb && echo '[ -f /workspaces/aop/.devcontainer/.env ] && set -a && source /workspaces/aop/.devcontainer/.env && set +a' >> ~/.bashrc",

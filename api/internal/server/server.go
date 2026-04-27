@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/donnie-ellis/aop/api/internal/config"
@@ -20,12 +21,36 @@ type Server struct {
 	log  zerolog.Logger
 }
 
+func cors(allowedOrigins []string) func(http.Handler) http.Handler {
+	originSet := make(map[string]struct{}, len(allowedOrigins))
+	for _, o := range allowedOrigins {
+		originSet[strings.TrimRight(o, "/")] = struct{}{}
+	}
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			origin := r.Header.Get("Origin")
+			if _, ok := originSet[origin]; ok {
+				w.Header().Set("Access-Control-Allow-Origin", origin)
+				w.Header().Set("Access-Control-Allow-Headers", "Authorization, Content-Type")
+				w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+				w.Header().Set("Vary", "Origin")
+			}
+			if r.Method == http.MethodOptions {
+				w.WriteHeader(http.StatusNoContent)
+				return
+			}
+			next.ServeHTTP(w, r)
+		})
+	}
+}
+
 func New(cfg *config.Config, h *handler.Handlers, st *store.Store, log zerolog.Logger) *Server {
 	r := chi.NewRouter()
 
 	r.Use(chiMiddleware.RequestID)
 	r.Use(chiMiddleware.RealIP)
 	r.Use(chiMiddleware.Recoverer)
+	r.Use(cors(cfg.CORSOrigins))
 
 	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")

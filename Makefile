@@ -1,4 +1,4 @@
-.PHONY: build-api build-controller build-agent build-all test test-api test-controller test-agent lint clean
+.PHONY: build-api build-controller build-agent build-all test test-api test-controller test-agent lint clean seed-user dev
 
 # Build outputs
 BIN_DIR := bin
@@ -51,6 +51,23 @@ migrate-down:
 migrate-create:
 	@read -p "Migration name: " name; \
 	migrate create -ext sql -dir ./migrations -seq $$name
+
+# Seed a local admin user (admin@local / password) — safe to re-run
+seed-user:
+	@HASH=$$(go run ./api/cmd/genhash/) && \
+	psql "$$AOP_DB_URL" \
+		-c "INSERT INTO users (id, email, password_hash) VALUES (gen_random_uuid(), 'admin@aop.local', '$$HASH') ON CONFLICT (email) DO UPDATE SET password_hash = EXCLUDED.password_hash;" && \
+	echo "Seeded: admin@aop.local / password"
+
+# Start all services — Ctrl+C stops everything
+dev: build-all
+	@export PATH="/home/vscode/.local/share/pnpm:$$PATH"; \
+	trap 'kill 0' INT TERM EXIT; \
+	./bin/api & \
+	./bin/controller & \
+	./bin/agent & \
+	(cd ui && pnpm dev) & \
+	wait
 
 # Clean
 clean:
