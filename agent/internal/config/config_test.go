@@ -28,13 +28,21 @@ func TestLoad_RequiredVars(t *testing.T) {
 		wantErr string
 	}{
 		{
-			name:    "missing all",
-			env:     map[string]string{},
+			name: "missing all",
+			env: map[string]string{
+				"AOP_API_URL":            "",
+				"AOP_REGISTRATION_TOKEN": "",
+				"AOP_AGENT_ADDRESS":      "",
+			},
 			wantErr: "AOP_API_URL is required",
 		},
 		{
-			name:    "missing token and address",
-			env:     map[string]string{"AOP_API_URL": "http://api"},
+			name: "missing token and address",
+			env: map[string]string{
+				"AOP_API_URL":            "http://api",
+				"AOP_REGISTRATION_TOKEN": "",
+				"AOP_AGENT_ADDRESS":      "",
+			},
 			wantErr: "AOP_REGISTRATION_TOKEN is required",
 		},
 		{
@@ -42,6 +50,7 @@ func TestLoad_RequiredVars(t *testing.T) {
 			env: map[string]string{
 				"AOP_API_URL":            "http://api",
 				"AOP_REGISTRATION_TOKEN": "tok",
+				"AOP_AGENT_ADDRESS":      "",
 			},
 			wantErr: "AOP_AGENT_ADDRESS is required",
 		},

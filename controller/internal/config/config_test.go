@@ -22,6 +22,7 @@ func TestLoad_MissingDBURL(t *testing.T) {
 
 func TestLoad_MissingAPIURL(t *testing.T) {
 	t.Setenv("AOP_DB_URL", "postgres://localhost/aop")
+	t.Setenv("AOP_API_URL", "")
 	_, err := Load()
 	if err == nil {
 		t.Fatal("expected error for missing AOP_API_URL")
@@ -29,6 +30,8 @@ func TestLoad_MissingAPIURL(t *testing.T) {
 }
 
 func TestLoad_MissingBoth(t *testing.T) {
+	t.Setenv("AOP_DB_URL", "")
+	t.Setenv("AOP_API_URL", "")
 	_, err := Load()
 	if err == nil {
 		t.Fatal("expected error when both required vars are missing")
