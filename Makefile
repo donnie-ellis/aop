@@ -1,3 +1,6 @@
+-include .devcontainer/.env
+export
+
 .PHONY: build-api build-controller build-agent build-all test test-api test-controller test-agent lint clean seed-user dev
 
 # Build outputs
